@@ -55,6 +55,42 @@ class Agent():
                 experiences = self.memory.sample()
                 self.learn(experiences, GAMMA)
 
+    def learn(self, experiences, gamma):
+        """Update value parameters using given batch of experience tuples.
+
+        Params
+        ======
+            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
+            gamma (float): discount factor
+        """
+        states, actions, rewards, next_states, dones = experiences
+
+        ## TODO: compute and minimize the loss
+        "*** YOUR CODE HERE ***"
+        targets_nexts = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+        targets = rewards + (1-dones) * gamma * targets_nexts
+        currs = self.qnetwork_local(states).gather(1, actions)
+
+        loss = F.mse_loss(currs, targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        # ------------------- update target network ------------------- #
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)                     
+
+    def soft_update(self, local_model, target_model, tau):
+        """Soft update model parameters.
+        θ_target = τ*θ_local + (1 - τ)*θ_target
+
+        Params
+        ======
+            local_model (PyTorch model): weights will be copied from
+            target_model (PyTorch model): weights will be copied to
+            tau (float): interpolation parameter 
+        """
+        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+
     def act(self, state, eps=0.):
         """Returns actions for given state as per current policy.
         
@@ -75,34 +111,6 @@ class Agent():
         else:
             return random.choice(np.arange(self.action_size))
 
-    def learn(self, experiences, gamma):
-        """Update value parameters using given batch of experience tuples.
-
-        Params
-        ======
-            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
-            gamma (float): discount factor
-        """
-        states, actions, rewards, next_states, dones = experiences
-
-        ## TODO: compute and minimize the loss
-        "*** YOUR CODE HERE ***"
-
-        # ------------------- update target network ------------------- #
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)                     
-
-    def soft_update(self, local_model, target_model, tau):
-        """Soft update model parameters.
-        θ_target = τ*θ_local + (1 - τ)*θ_target
-
-        Params
-        ======
-            local_model (PyTorch model): weights will be copied from
-            target_model (PyTorch model): weights will be copied to
-            tau (float): interpolation parameter 
-        """
-        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
-            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
 
 class ReplayBuffer:
